@@ -33,7 +33,13 @@ let rec eval_exp = function
       | S.RecLambda (f, x, e) as rec_f ->
           eval_exp (S.subst_exp [ (f, rec_f); (x, v) ] e)
       | _ -> failwith "Function expected")
-  | _ -> failwith "TODO"
+  | S.Nil -> S.Nil
+  | S.Pair (e1, e2) -> S.Pair (eval_exp e1, eval_exp e2)
+  | S.Fst e -> S.Fst (eval_exp e)
+  | S.Snd e -> S.Snd (eval_exp e)
+  | S.Cons (e1, e2) -> S.Cons (eval_exp e1, eval_exp e2)
+  | S.Match (e1, e2, i1, i2, e) -> 
+      S.Match (eval_exp e1, eval_exp e2, i1, i2, eval_exp e)
 
 and eval_int e =
   match eval_exp e with S.Int n -> n | _ -> failwith "Integer expected"
@@ -41,12 +47,12 @@ and eval_int e =
 let is_value = function
   | S.Int _ | S.Bool _ | S.Lambda _ | S.RecLambda _ -> true
   | S.Var _ | S.Plus _ | S.Minus _ | S.Times _ | S.Equal _ | S.Less _
-  | S.Greater _ | S.IfThenElse _ | S.Apply _ ->
+  | S.Greater _ | S.IfThenElse _ | S.Apply _ | S.Nil | S.Pair _ | S.Fst _
+  | S.Snd _ | S.Cons _ | S.Match _ ->
       false
-  | _ -> failwith "TODO"
 
 let rec step = function
-  | S.Var _ | S.Int _ | S.Bool _ | S.Lambda _ | S.RecLambda _ ->
+  | S.Var _ | S.Int _ | S.Bool _ | S.Lambda _ | S.RecLambda _ | S.Nil ->
       failwith "Expected a non-terminal expression"
   | S.Plus (S.Int n1, S.Int n2) -> S.Int (n1 + n2)
   | S.Plus (S.Int n1, e2) -> S.Plus (S.Int n1, step e2)
@@ -73,7 +79,12 @@ let rec step = function
       S.subst_exp [ (f, rec_f); (x, v) ] e
   | S.Apply (((S.Lambda _ | S.RecLambda _) as f), e) -> S.Apply (f, step e)
   | S.Apply (e1, e2) -> S.Apply (step e1, e2)
-  | _ -> failwith "TODO"
+  | S.Pair (e1, e2) -> if is_value e1 then S.Pair (e1, step e2) else S.Pair (step e1, e2) 
+  | S.Fst e -> S.Fst (step e)
+  | S.Snd e -> S.Snd (step e)
+  | S.Cons (e1, e2) -> S.Cons (step e1, e2)
+  | S.Match (e1, e2, i1, i2, e) -> e1 (*Ne vem kako deluje match*)
+
 
 let big_step e =
   let v = eval_exp e in
